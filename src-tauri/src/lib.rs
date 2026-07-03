@@ -62,3 +62,25 @@ pub fn run() {
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_system_config_resolution() {
+        // Temporarily set test env vars
+        std::env::set_var("APP_TENANT_ID", "test-tenant-env");
+        std::env::set_var("APP_POCKETBASE_URL", "https://test-pb.com");
+        
+        let config = get_system_config().expect("failed to get system config");
+        
+        assert_eq!(config.tenant_id, Some("test-tenant-env".to_string()));
+        assert_eq!(config.pocketbase_url, Some("https://test-pb.com".to_string()));
+        assert_eq!(config.config_source, "Environment Variables");
+        
+        // Clean up env vars
+        std::env::remove_var("APP_TENANT_ID");
+        std::env::remove_var("APP_POCKETBASE_URL");
+    }
+}
