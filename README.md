@@ -120,6 +120,14 @@ Make sure you have [Bun](https://bun.sh/) and [Rustup](https://rustup.rs/) insta
   ```bash
   bun run build
   ```
+* **Run Frontend Unit & Integration Tests**:
+  ```bash
+  bun test
+  ```
+* **Run Backend Host Integration Tests**:
+  ```bash
+  cargo test --manifest-path src-tauri/Cargo.toml
+  ```
 * **Check Rust compilation health**:
   ```bash
   cargo check --manifest-path src-tauri/Cargo.toml
