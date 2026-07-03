@@ -53,7 +53,7 @@ pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().build())
     .invoke_handler(tauri::generate_handler![get_system_config])
-    .setup(|app| {
+    .setup(|_app| {
       if cfg!(debug_assertions) {
         // Custom setup for debug builds if needed
       }

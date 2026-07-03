@@ -4,9 +4,7 @@ import { MOCK_DB_TENANTS, loadTenantConfig } from "./config";
 describe("Dynamic Multi-Tenant Configuration Tests", () => {
   beforeAll(() => {
     // Mock the window and localStorage for the bun environment
-    global.window = {
-      __TAURI_INTERNALS__: {}
-    } as any;
+    global.window = {} as any;
     
     let store: Record<string, string> = {
       'tenant_id': 'usa-pride'
