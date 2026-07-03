@@ -1,0 +1,106 @@
+---
+---
+<section x-show="currentTab === 'config'" class="glass-panel" style="animation: fadeIn 0.4s ease-out;">
+  <div style="margin-bottom: 30px;">
+    <h1 style="font-size: 2.2rem; background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.7) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      12-Factor Config Dashboard
+    </h1>
+    <p style="color: var(--text-muted); margin-top: 4px;">Inspect and audit multi-tenant configuration sources in real time without redeploying the application.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start;">
+    <!-- Config Inspector Left Side -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <!-- Config Status -->
+      <div class="glass-panel" style="background: rgba(0, 0, 0, 0.2); padding: 20px;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--primary);">System Configuration Source</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Active Config Source:</span>
+            <div style="font-size: 1.05rem; font-weight: 700; color: #ffffff; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--primary);"></span>
+              <span x-text="config.configSource"></span>
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">ConfigMap File Location:</span>
+            <div style="font-family: monospace; font-size: 0.85rem; color: #ffffff; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 4px; margin-top: 4px;">
+              world-cup-2026-tracker/config.json
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Tauri Native Bridge:</span>
+              <div style="font-weight: 600; color: #ffffff;" x-text="isTauri ? 'CONNECTED' : 'UNAVAILABLE'"></div>
+            </div>
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Active Tenant ID:</span>
+              <div style="font-weight: 600; color: var(--primary);" x-text="config.tenantId"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Configuration Override -->
+      <div class="glass-panel" style="background: rgba(0,0,0,0.15); padding: 20px;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--primary);">Configure Tenant Override</h3>
+        
+        <form @submit.prevent="saveConfigOverride()">
+          <!-- Tenant Dropdown Selector -->
+          <div class="form-group">
+            <label class="form-label">Select Tenant Database Record</label>
+            <select x-model="tenantInput" class="form-input" style="background-color: rgb(15, 23, 42);">
+              <template x-for="tenant in availableTenants" :key="tenant">
+                <option :value="tenant" x-text="tenant" :selected="tenant === tenantInput"></option>
+              </template>
+            </select>
+            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: block;">
+              Changing this selector replicates retrieving different database records or ConfigMaps.
+            </span>
+          </div>
+
+          <!-- PocketBase URL -->
+          <div class="form-group">
+            <label class="form-label">PocketBase / PocketHost Server Instance URL</label>
+            <input 
+              type="url" 
+              x-model="pbUrlInput" 
+              placeholder="https://your-pockethost-url.pockethost.io" 
+              class="form-input"
+            />
+            <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: block;">
+              Specify a live PocketBase server to retrieve tenant database records in real time.
+            </span>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 24px;">
+            <button type="submit" class="btn" style="flex-grow: 1;">Apply Settings</button>
+            <button type="button" @click="clearConfigOverride()" class="btn btn-secondary">Reset to Host Config</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Active JSON Right Side -->
+    <div style="display: flex; flex-direction: column; gap: 24px; height: 100%;">
+      <div class="glass-panel" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; height: 100%; min-height: 400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 1rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Active JSON Dump</h3>
+          <span class="badge badge-accent" style="font-size: 0.65rem;">ConfigMap Schema</span>
+        </div>
+        
+        <pre style="flex-grow: 1; font-family: monospace; font-size: 0.8rem; background: rgba(10, 10, 15, 0.8); padding: 16px; border-radius: var(--radius-sm); border: 1px solid rgba(var(--primary-rgb), 0.1); color: #818cf8; overflow: auto; max-height: 450px;" x-text="JSON.stringify(config, null, 2)"></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

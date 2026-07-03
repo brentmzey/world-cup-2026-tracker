@@ -1,0 +1,17 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Matches from '../components/Matches.astro';
+import Standings from '../components/Standings.astro';
+import StadiumMap from '../components/StadiumMap.astro';
+import Stadiums from '../components/Stadiums.astro';
+import ConfigDashboard from '../components/ConfigDashboard.astro';
+---
+
+<Layout>
+  <!-- All views are contained here and toggled dynamically via Alpine.js x-show -->
+  <Matches />
+  <Standings />
+  <StadiumMap />
+  <Stadiums />
+  <ConfigDashboard />
+</Layout>

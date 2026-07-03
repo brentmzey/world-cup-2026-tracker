@@ -1,0 +1,71 @@
+---
+---
+<section x-show="currentTab === 'standings'" class="glass-panel" style="animation: fadeIn 0.4s ease-out;">
+  <div style="margin-bottom: 30px;">
+    <h1 style="font-size: 2.2rem; background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.7) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      Groups & Standings
+    </h1>
+    <p style="color: var(--text-muted); margin-top: 4px;">Explore current standings and team progress across the World Cup groups.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+    <template x-for="group in standings" :key="group.group">
+      <div class="glass-panel" style="background: rgba(var(--card-bg-rgb), 0.4); padding: 20px; border-radius: var(--radius-md);">
+        <h3 x-text="group.group" style="color: var(--primary); font-size: 1.3rem; margin-bottom: 16px; border-bottom: 2px solid rgba(var(--primary-rgb), 0.15); padding-bottom: 8px;"></h3>
+        
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+            <thead>
+              <tr style="color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <th style="padding: 8px 4px; font-weight: 600;">Team</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 600;">PL</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 600;">W</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 600;">D</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 600;">L</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 600;">GD</th>
+                <th style="padding: 8px 4px; text-align: center; font-weight: 700; color: var(--primary);">PTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(team, index) in group.teams" :key="team.teamId">
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: var(--transition-fast);" class="hover-row">
+                  <!-- Team Flag + Name -->
+                  <td style="padding: 10px 4px; display: flex; align-items: center; gap: 8px; font-weight: 500;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); width: 12px;" x-text="index + 1"></span>
+                    <span style="font-size: 1.3rem;" x-text="TEAMS.find(t => t.id === team.teamId)?.flag || '🏳️'"></span>
+                    <span x-text="team.code" style="color: #ffffff; font-weight: 600;" :title="team.teamName"></span>
+                  </td>
+                  
+                  <!-- Match stats -->
+                  <td style="padding: 10px 4px; text-align: center;" x-text="team.played"></td>
+                  <td style="padding: 10px 4px; text-align: center;" x-text="team.won"></td>
+                  <td style="padding: 10px 4px; text-align: center;" x-text="team.drawn"></td>
+                  <td style="padding: 10px 4px; text-align: center;" x-text="team.lost"></td>
+                  
+                  <!-- Goal Difference -->
+                  <td style="padding: 10px 4px; text-align: center;" 
+                    x-text="(team.goalsFor - team.goalsAgainst) > 0 ? '+' + (team.goalsFor - team.goalsAgainst) : (team.goalsFor - team.goalsAgainst)"
+                    :style="(team.goalsFor - team.goalsAgainst) > 0 ? 'color: #10b981;' : (team.goalsFor - team.goalsAgainst) < 0 ? 'color: #ef4444;' : ''"
+                  ></td>
+                  
+                  <!-- Points -->
+                  <td style="padding: 10px 4px; text-align: center; font-weight: 700; color: var(--primary); font-size: 0.95rem;" x-text="team.points"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+  </div>
+</section>
+
+<style>
+  .hover-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

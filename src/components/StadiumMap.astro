@@ -1,0 +1,271 @@
+---
+---
+<section x-show="currentTab === 'map'" class="glass-panel" style="animation: fadeIn 0.4s ease-out; padding: 24px;">
+  <div style="margin-bottom: 24px;">
+    <h1 style="font-size: 2.2rem; background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.7) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      Interactive Stadium Map
+    </h1>
+    <p style="color: var(--text-muted); margin-top: 4px;">
+      Explore venues, geolocations, capacity zones, and match distributions across USA, Canada, and Mexico.
+    </p>
+  </div>
+
+  <div 
+    x-data="stadiumMap" 
+    x-init="initComponent()" 
+    style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; min-height: 520px;"
+  >
+    <!-- Map Container -->
+    <div style="position: relative; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--card-border); box-shadow: var(--shadow-lg);">
+      <!-- Leaflet Map Div -->
+      <div id="leaflet-stadium-map" style="width: 100%; height: 500px; z-index: 1; background: #0f172a;"></div>
+      
+      <!-- Overlay controls/status -->
+      <div style="position: absolute; bottom: 12px; left: 12px; z-index: 10; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(var(--primary-rgb), 0.2); font-size: 0.75rem; display: flex; gap: 12px; pointer-events: none;">
+        <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #006847;"></span> Mexico</span>
+        <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ce1126;"></span> Canada</span>
+        <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #0a3161;"></span> USA</span>
+      </div>
+    </div>
+
+    <!-- Active Stadium & Matches Panel -->
+    <div class="glass-panel" style="background: rgba(var(--card-bg-rgb), 0.5); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-radius: var(--radius-md); overflow: auto; max-height: 500px;">
+      <!-- If no stadium is selected -->
+      <div x-show="!selectedStadium" style="text-align: center; margin: auto 0; padding: 20px; color: var(--text-muted);">
+        <span style="font-size: 3rem; display: block; margin-bottom: 12px;">🗺️</span>
+        <h4 style="font-size: 1.1rem; color: #ffffff; margin-bottom: 6px;">Select a Stadium</h4>
+        <p style="font-size: 0.8rem;">Click pins on the map to review geographic details, capacity overlays, and the match schedule.</p>
+      </div>
+
+      <!-- If a stadium is selected -->
+      <div x-show="selectedStadium" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="position: relative;">
+          <!-- Close button -->
+          <button 
+            @click="clearSelection()" 
+            style="position: absolute; top: 0; right: 0; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;"
+            class="hover-scale"
+          >✕</button>
+
+          <!-- Country Badge & Image -->
+          <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;" x-text="selectedStadium?.country"></div>
+          <h3 x-text="selectedStadium?.name" style="font-size: 1.3rem; padding-right: 20px; color: #ffffff;"></h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;" x-text="'📍 ' + selectedStadium?.city"></p>
+        </div>
+
+        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;" x-text="selectedStadium?.info"></div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; font-size: 0.75rem;">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.65rem; text-transform: uppercase;">Capacity</span>
+            <strong x-text="selectedStadium?.capacity.toLocaleString() + ' seats'"></strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.65rem; text-transform: uppercase;">Coordinates</span>
+            <strong x-text="selectedStadium ? selectedStadium.lat.toFixed(4) + ', ' + selectedStadium.lng.toFixed(4) : ''"></strong>
+          </div>
+        </div>
+
+        <!-- Matches at this Stadium -->
+        <div>
+          <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 4px; color: var(--primary);">Matches Scheduled</h4>
+          
+          <div style="display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+            <template x-for="match in getStadiumMatches(selectedStadium?.id)" :key="match.id">
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border-left: 2px solid var(--primary); display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <span x-text="typeof match.homeTeam === 'object' ? match.homeTeam.flag : ''"></span>
+                    <span x-text="typeof match.homeTeam === 'object' ? match.homeTeam.code : match.homeTeam" style="font-weight: 600;"></span>
+                    <span style="color: var(--text-muted);">vs</span>
+                    <span x-text="typeof match.awayTeam === 'object' ? match.awayTeam.flag : ''"></span>
+                    <span x-text="typeof match.awayTeam === 'object' ? match.awayTeam.code : match.awayTeam" style="font-weight: 600;"></span>
+                  </div>
+                  <span style="font-size: 0.65rem; color: var(--text-muted);" x-text="match.date + ' ' + match.time"></span>
+                </div>
+
+                <div>
+                  <template x-if="match.status === 'Live' || match.status === 'Finished'">
+                    <span style="font-weight: 800; color: var(--accent);" x-text="match.homeScore + ' - ' + match.awayScore"></span>
+                  </template>
+                  <template x-if="match.status === 'Scheduled'">
+                    <span class="badge badge-primary" style="font-size: 0.6rem; padding: 2px 6px;">VS</span>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="getStadiumMatches(selectedStadium?.id).length === 0">
+              <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 10px;">
+                No matches currently scheduled here.
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action zoom back -->
+      <button 
+        x-show="selectedStadium"
+        @click="zoomToActive()" 
+        class="btn btn-secondary" 
+        style="width: 100%; font-size: 0.75rem; padding: 8px;"
+      >
+        🎯 Center on Stadium
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Alpine Map State -->
+<script>
+  import Alpine from 'alpinejs';
+
+  // We check if L is defined in the window (Leaflet library)
+  Alpine.data('stadiumMap', () => ({
+    map: null as any,
+    markers: [] as any[],
+    selectedStadium: null as any,
+    activeOverlay: null as any,
+    activeLines: [] as any[],
+
+    initComponent() {
+      // Watch the active tab to re-center or invalidate size
+      this.$watch('currentTab', (value) => {
+        if (value === 'map') {
+          setTimeout(() => {
+            if (!this.map) {
+              this.initializeLeaflet();
+            } else {
+              this.map.invalidateSize();
+            }
+          }, 200);
+        }
+      });
+    },
+
+    initializeLeaflet() {
+      const L = (window as any).L;
+      if (!L) {
+        console.error('Leaflet library is not loaded.');
+        return;
+      }
+
+      // Initialize map centered on North America
+      this.map = L.map('leaflet-stadium-map', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([37.0902, -95.7129], 4);
+
+      // Add elegant dark theme tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18
+      }).addTo(this.map);
+
+      // Add markers for all stadiums in parent scope
+      const stadiums = this.$parent.stadiums;
+
+      stadiums.forEach((stadium: any) => {
+        // Set color code based on country
+        let markerColor = '#0a3161'; // USA
+        if (stadium.country === 'Mexico') markerColor = '#006847';
+        else if (stadium.country === 'Canada') markerColor = '#ce1126';
+
+        // SVG Custom Icon for markers
+        const svgIcon = L.divIcon({
+          html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.5); transform: translate(-3px, -3px);"></div>`,
+          className: 'custom-leaflet-marker',
+          iconSize: [14, 14],
+          iconAnchor: [7, 7]
+        });
+
+        const marker = L.marker([stadium.lat, stadium.lng], { icon: svgIcon })
+          .addTo(this.map)
+          .on('click', () => {
+            this.selectStadium(stadium);
+          });
+
+        this.markers.push({ id: stadium.id, marker });
+      });
+    },
+
+    selectStadium(stadium: any) {
+      const L = (window as any).L;
+      this.selectedStadium = stadium;
+
+      // Center map on selected stadium
+      this.map.setView([stadium.lat, stadium.lng], 6);
+
+      // Remove active overlays
+      if (this.activeOverlay) {
+        this.map.removeLayer(this.activeOverlay);
+      }
+      this.activeLines.forEach((line: any) => this.map.removeLayer(line));
+      this.activeLines = [];
+
+      // 1. Draw GEOMETRIC DATA Overlay: "Capacity zone"
+      // Draw a transparent zone around the stadium representing its spectator footprint
+      // Radius proportional to capacity (e.g. 1 meter per seat)
+      this.activeOverlay = L.circle([stadium.lat, stadium.lng], {
+        color: 'var(--primary)',
+        fillColor: 'var(--primary)',
+        fillOpacity: 0.15,
+        radius: stadium.capacity * 1.5 // e.g. ~100km footprint
+      }).addTo(this.map);
+
+      // 2. Draw GEOMETRIC DATA Overlay: Connect back to country capitals (network lines)
+      // USA Capital: Washington DC (38.9072, -77.0369)
+      // Canada Capital: Ottawa (45.4215, -75.6972)
+      // Mexico Capital: Mexico City (19.4326, -99.1332)
+      const capitals: Record<string, [number, number]> = {
+        'USA': [38.9072, -77.0369],
+        'Canada': [45.4215, -75.6972],
+        'Mexico': [19.4326, -99.1332]
+      };
+
+      const capitalLatLng = capitals[stadium.country];
+      if (capitalLatLng) {
+        const line = L.polyline([[stadium.lat, stadium.lng], capitalLatLng], {
+          color: 'var(--accent)',
+          weight: 2,
+          opacity: 0.6,
+          dashArray: '5, 8'
+        }).addTo(this.map);
+        this.activeLines.push(line);
+      }
+    },
+
+    clearSelection() {
+      this.selectedStadium = null;
+      if (this.activeOverlay) {
+        this.map.removeLayer(this.activeOverlay);
+        this.activeOverlay = null;
+      }
+      this.activeLines.forEach((line: any) => this.map.removeLayer(line));
+      this.activeLines = [];
+      this.map.setView([37.0902, -95.7129], 4);
+    },
+
+    zoomToActive() {
+      if (this.selectedStadium) {
+        this.map.setView([this.selectedStadium.lat, this.selectedStadium.lng], 8);
+      }
+    },
+
+    getStadiumMatches(stadiumId: string) {
+      if (!stadiumId) return [];
+      return this.$parent.matches.filter((m: any) => m.stadiumId === stadiumId);
+    }
+  }));
+</script>
+
+<style is:global>
+  .custom-leaflet-marker:hover div {
+    transform: translate(-3px, -3px) scale(1.3) !important;
+    box-shadow: 0 0 12px var(--primary) !important;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

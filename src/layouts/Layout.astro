@@ -1,0 +1,241 @@
+---
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="generator" content={Astro.generator} />
+    <title>World Cup 2026 Tracker</title>
+    <!-- Leaflet.js Geolocation Map CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  </head>
+  <body>
+    <!-- Background Gradient Glows -->
+    <div class="bg-gradient-glow"></div>
+
+    <!-- Alpine.js Application Shell -->
+    <div 
+      x-data="worldCupApp" 
+      x-init="initApp()" 
+      class="app-container"
+      x-cloak
+    >
+      <!-- Sidebar Navigation -->
+      <aside class="glass-panel" style="margin: 20px; height: calc(100vh - 40px); display: flex; flex-direction: column; justify-content: space-between; border-radius: var(--radius-lg);">
+        <div>
+          <!-- Tenant / Branding Header -->
+          <div style="padding: 10px 0 20px 0; border-bottom: 1px solid rgba(var(--primary-rgb), 0.2);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 2rem; animation: pulse 2s infinite;">🏆</span>
+              <div>
+                <h2 x-text="config.appName || 'World Cup 2026'" style="font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary);">Loading...</h2>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-primary" style="font-size: 0.6rem; padding: 2px 6px;" x-text="config.tenantId || 'default'"></span>
+                  <template x-if="config.pocketbaseUrl">
+                    <span class="badge badge-success" style="font-size: 0.6rem; padding: 2px 6px;">PB</span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Links -->
+          <nav style="margin-top: 30px; display: flex; flex-direction: column; gap: 10px;">
+            <button 
+              @click="currentTab = 'matches'" 
+              class="btn"
+              :class="currentTab === 'matches' ? '' : 'btn-secondary'"
+              style="width: 100%; justify-content: flex-start;"
+            >
+              ⚽ Matches & Scores
+            </button>
+            
+            <button 
+              @click="currentTab = 'standings'" 
+              class="btn"
+              :class="currentTab === 'standings' ? '' : 'btn-secondary'"
+              style="width: 100%; justify-content: flex-start;"
+            >
+              📊 Groups & Standings
+            </button>
+
+            <button 
+              @click="currentTab = 'map'" 
+              class="btn"
+              :class="currentTab === 'map' ? '' : 'btn-secondary'"
+              style="width: 100%; justify-content: flex-start;"
+            >
+              🗺️ Interactive Map
+            </button>
+            
+            <template x-if="config.features?.enableStadiumGuide">
+              <button 
+                @click="currentTab = 'stadiums'" 
+                class="btn"
+                :class="currentTab === 'stadiums' ? '' : 'btn-secondary'"
+                style="width: 100%; justify-content: flex-start;"
+              >
+                🏟️ Stadiums & Cities
+              </button>
+            </template>
+
+            <button 
+              @click="currentTab = 'config'" 
+              class="btn"
+              :class="currentTab === 'config' ? '' : 'btn-secondary'"
+              style="width: 100%; justify-content: flex-start; margin-top: 20px; border: 1px dashed rgba(var(--primary-rgb), 0.4);"
+            >
+              ⚙️ 12-Factor Config
+            </button>
+          </nav>
+        </div>
+
+        <!-- Footer / System Info -->
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px;">
+          <p style="font-size: 0.75rem; color: var(--text-muted);">
+            Running on <strong style="color: #ffffff;">Bun + Tauri v2</strong>
+          </p>
+          <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%;" :style="isTauri ? 'background-color: #10b981' : 'background-color: #f59e0b'"></span>
+            <span x-text="isTauri ? 'Desktop/Mobile Shell' : 'Web App Mode'"></span>
+          </p>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <slot />
+      </main>
+    </div>
+
+    <!-- Alpine.js App State Script -->
+    <script>
+      import Alpine from 'alpinejs';
+      import { loadTenantConfig, applyTheme, isTauriEnvironment, MOCK_DB_TENANTS } from '../lib/config';
+      import { STADIUMS, MATCHES, GROUP_STANDINGS, type Match, type Stadium, type GroupStanding } from '../lib/mockData';
+
+      // Define Alpine Component State
+      Alpine.data('worldCupApp', () => ({
+        currentTab: 'matches',
+        config: {} as any,
+        isTauri: false,
+        stadiums: [] as Stadium[],
+        matches: [] as Match[],
+        standings: [] as GroupStanding[],
+        
+        // Match filtering and search
+        matchSearch: '',
+        matchFilter: 'All', // 'All', 'Live', 'Scheduled', 'Finished'
+        
+        // Stadium filtering
+        stadiumCountryFilter: 'All', // 'All', 'USA', 'Canada', 'Mexico'
+        
+        // Predictions State
+        predictions: {} as Record<string, 'home' | 'draw' | 'away'>,
+        
+        // Configuration editor fields (for demonstration & runtime config settings)
+        pbUrlInput: '',
+        tenantInput: 'world-cup-classic',
+        availableTenants: Object.keys(MOCK_DB_TENANTS),
+        
+        async initApp() {
+          this.isTauri = isTauriEnvironment();
+          this.stadiums = STADIUMS;
+          this.matches = MATCHES;
+          this.standings = GROUP_STANDINGS;
+          
+          // Load stored predictions
+          const savedPreds = localStorage.getItem('wc_predictions');
+          if (savedPreds) {
+            this.predictions = JSON.parse(savedPreds);
+          }
+
+          // Load dynamic tenant configuration
+          await this.reloadConfig();
+        },
+
+        async reloadConfig() {
+          // Resolve config
+          const config = await loadTenantConfig();
+          this.config = config;
+          
+          // Set inputs to current values
+          this.pbUrlInput = config.pocketbaseUrl || '';
+          this.tenantInput = config.tenantId;
+          
+          // Apply styling dynamically
+          applyTheme(config);
+        },
+
+        async saveConfigOverride() {
+          // Store overrides in LocalStorage for demonstration/session behavior
+          if (this.tenantInput) {
+            localStorage.setItem('tenant_id', this.tenantInput);
+          } else {
+            localStorage.removeItem('tenant_id');
+          }
+
+          if (this.pbUrlInput) {
+            localStorage.setItem('pocketbase_url', this.pbUrlInput);
+          } else {
+            localStorage.removeItem('pocketbase_url');
+          }
+
+          await this.reloadConfig();
+        },
+
+        async clearConfigOverride() {
+          localStorage.removeItem('tenant_id');
+          localStorage.removeItem('pocketbase_url');
+          await this.reloadConfig();
+        },
+
+        // Helper to format country code to flag
+        getCountryFlag(country: string): string {
+          switch (country) {
+            case 'USA': return '🇺🇸';
+            case 'Canada': return '🇨🇦';
+            case 'Mexico': return '🇲🇽';
+            default: return '🏳️';
+          }
+        },
+
+        // Prediction functionality
+        makePrediction(matchId: string, outcome: 'home' | 'draw' | 'away') {
+          this.predictions[matchId] = outcome;
+          localStorage.setItem('wc_predictions', JSON.stringify(this.predictions));
+        },
+
+        // Calculate totals for dashboard
+        getStats() {
+          const totalMatches = this.matches.length;
+          const liveMatches = this.matches.filter(m => m.status === 'Live').length;
+          const finishedMatches = this.matches.filter(m => m.status === 'Finished').length;
+          const predictionsMade = Object.keys(this.predictions).length;
+          
+          return {
+            totalMatches,
+            liveMatches,
+            finishedMatches,
+            predictionsMade
+          };
+        }
+      }));
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  [x-cloak] { display: none !important; }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+</style>
