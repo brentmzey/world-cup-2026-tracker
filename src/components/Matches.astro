@@ -97,7 +97,7 @@
         <!-- Details Footer & Prediction Panel (span columns 3) -->
         <div style="grid-column: span 3; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; margin-top: 8px; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted);">
-            <span>📍 Stadium: <strong style="color: #ffffff;" x-text="stadiums.find(s => s.id === match.stadiumId)?.name || match.stadiumId"></strong></span>
+            <span>📍 Stadium: <strong style="color: #ffffff;" x-text="stadiums.find(s => s.id === match.stadiumId || s.stadiumId === match.stadiumId)?.name || match.stadiumId"></strong></span>
             <span>🏷️ Stage: <strong style="color: #ffffff;" x-text="match.stage"></strong></span>
           </div>
 

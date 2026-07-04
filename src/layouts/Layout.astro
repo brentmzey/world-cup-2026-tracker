@@ -188,6 +188,7 @@ import '../styles/global.css';
               await this.pb.collection('standings').unsubscribe();
               await this.pb.collection('group_standings').unsubscribe();
               await this.pb.collection('stadiums').unsubscribe();
+              await this.pb.collection('teams').unsubscribe();
             } catch (err) {
               console.warn('Error unsubscribing:', err);
             }
@@ -198,6 +199,7 @@ import '../styles/global.css';
             this.stadiums = STADIUMS;
             this.matches = MATCHES;
             this.standings = GROUP_STANDINGS;
+            this.teams = TEAMS;
             return;
           }
 
@@ -214,6 +216,15 @@ import '../styles/global.css';
               });
             } catch (err) {
               console.warn('Matches subscription failed:', err);
+            }
+
+            // Subscribe to real-time updates for Teams
+            try {
+              await this.pb.collection('teams').subscribe('*', (e: any) => {
+                this.handleTeamRealtimeUpdate(e);
+              });
+            } catch (err) {
+              console.warn('Teams subscription failed:', err);
             }
 
             // Subscribe to real-time updates for Standings
@@ -246,18 +257,38 @@ import '../styles/global.css';
             this.stadiums = STADIUMS;
             this.matches = MATCHES;
             this.standings = GROUP_STANDINGS;
+            this.teams = TEAMS;
           }
         },
 
         async fetchPocketBaseData() {
           if (!this.pb) return;
 
+          // Fetch Teams first so they are available for match and standing resolving
+          try {
+            const pbTeams = await this.pb.collection('teams').getFullList();
+            if (pbTeams && pbTeams.length > 0) {
+              this.teams = pbTeams.map((t: any) => ({
+                id: t.id,
+                teamId: t.teamId || t.id,
+                name: t.name,
+                code: t.code,
+                flag: t.flag || '🏳️',
+                group: t.group || ''
+              }));
+            }
+          } catch (err) {
+            console.warn('Failed to load teams from PocketBase, using static data.', err);
+            this.teams = TEAMS;
+          }
+
           // Fetch Stadiums
           try {
             const pbStadiums = await this.pb.collection('stadiums').getFullList();
             if (pbStadiums && pbStadiums.length > 0) {
               this.stadiums = pbStadiums.map((s: any) => ({
-                id: s.stadiumId || s.id,
+                id: s.id,
+                stadiumId: s.stadiumId || s.id,
                 name: s.name,
                 city: s.city,
                 country: s.country,
@@ -276,7 +307,8 @@ import '../styles/global.css';
           // Fetch Matches
           try {
             const pbMatches = await this.pb.collection('matches').getFullList({
-              sort: 'date,time'
+              sort: 'date,time',
+              expand: 'homeTeam,awayTeam,stadiumId,stadium'
             });
             if (pbMatches && pbMatches.length > 0) {
               this.matches = pbMatches.map((m: any) => this.resolveMatchRecord(m));
@@ -295,9 +327,13 @@ import '../styles/global.css';
           try {
             let pbStandings = [];
             try {
-              pbStandings = await this.pb.collection('standings').getFullList();
+              pbStandings = await this.pb.collection('standings').getFullList({
+                expand: 'teamId,team'
+              });
             } catch (err) {
-              pbStandings = await this.pb.collection('group_standings').getFullList();
+              pbStandings = await this.pb.collection('group_standings').getFullList({
+                expand: 'teamId,team'
+              });
             }
             if (pbStandings && pbStandings.length > 0) {
               this.standings = this.processStandings(pbStandings);
@@ -312,10 +348,19 @@ import '../styles/global.css';
 
         resolveTeam(teamInput: any) {
           if (typeof teamInput === 'object' && teamInput !== null) {
-            return teamInput;
+            const teamId = teamInput.id || teamInput.teamId;
+            const found = this.teams.find(t => t.id === teamId || t.teamId === teamId);
+            if (found) return found;
+            return {
+              id: teamId || 'unknown',
+              name: teamInput.name || teamInput.teamName || 'Unknown Team',
+              code: teamInput.code || 'UNK',
+              flag: teamInput.flag || '🏳️',
+              group: teamInput.group || ''
+            };
           }
           if (typeof teamInput === 'string') {
-            const found = this.teams.find(t => t.id === teamInput || t.code === teamInput || t.name === teamInput);
+            const found = this.teams.find(t => t.id === teamInput || t.teamId === teamInput || t.code === teamInput || t.name === teamInput);
             if (found) return found;
             return {
               id: teamInput,
@@ -331,13 +376,13 @@ import '../styles/global.css';
         resolveMatchRecord(record: any): Match {
           return {
             id: record.matchId || record.id,
-            homeTeam: this.resolveTeam(record.homeTeam),
-            awayTeam: this.resolveTeam(record.awayTeam),
+            homeTeam: this.resolveTeam(record.expand?.homeTeam || record.homeTeam),
+            awayTeam: this.resolveTeam(record.expand?.awayTeam || record.awayTeam),
             homeScore: record.homeScore !== undefined && record.homeScore !== null ? Number(record.homeScore) : undefined,
             awayScore: record.awayScore !== undefined && record.awayScore !== null ? Number(record.awayScore) : undefined,
             date: record.date,
             time: record.time,
-            stadiumId: record.stadiumId,
+            stadiumId: record.expand?.stadiumId?.stadiumId || record.expand?.stadiumId?.id || record.expand?.stadium?.stadiumId || record.expand?.stadium?.id || record.stadiumId || record.stadium,
             stage: record.stage || 'Group Stage',
             status: record.status || 'Scheduled'
           };
@@ -361,7 +406,21 @@ import '../styles/global.css';
               }
               return {
                 group: r.group,
-                teams: Array.isArray(teams) ? teams : []
+                teams: Array.isArray(teams) ? teams.map(t => {
+                  const resolved = this.resolveTeam(t);
+                  return {
+                    teamId: resolved.id,
+                    teamName: resolved.name,
+                    code: resolved.code,
+                    played: Number(t.played ?? 0),
+                    won: Number(t.won ?? 0),
+                    drawn: Number(t.drawn ?? 0),
+                    lost: Number(t.lost ?? 0),
+                    goalsFor: Number(t.goalsFor ?? t.goals_for ?? 0),
+                    goalsAgainst: Number(t.goalsAgainst ?? t.goals_against ?? 0),
+                    points: Number(t.points ?? 0)
+                  };
+                }) : []
               };
             });
           }
@@ -373,10 +432,13 @@ import '../styles/global.css';
             if (!groupsMap[groupName]) {
               groupsMap[groupName] = [];
             }
+            const teamObj = r.expand?.teamId || r.expand?.team || {};
+            const teamName = r.teamName || r.team_name || r.name || teamObj.name || teamObj.teamName || 'Unknown Team';
+            const code = r.code || teamObj.code || (teamName || '').substring(0, 3).toUpperCase();
             groupsMap[groupName].push({
               teamId: r.teamId || r.id,
-              teamName: r.teamName || r.team_name || r.name,
-              code: r.code || (r.teamName || r.name || '').substring(0, 3).toUpperCase(),
+              teamName: teamName,
+              code: code,
               played: Number(r.played ?? 0),
               won: Number(r.won ?? 0),
               drawn: Number(r.drawn ?? 0),
@@ -423,6 +485,42 @@ import '../styles/global.css';
           }
         },
 
+        handleTeamRealtimeUpdate(e: any) {
+          console.log('Real-time team update received:', e);
+          const resolvedTeam = {
+            id: e.record.id,
+            teamId: e.record.teamId || e.record.id,
+            name: e.record.name,
+            code: e.record.code,
+            flag: e.record.flag || '🏳️',
+            group: e.record.group || ''
+          };
+
+          if (e.action === 'create') {
+            if (!this.teams.some(t => t.id === resolvedTeam.id)) {
+              this.teams.push(resolvedTeam);
+            }
+          } else if (e.action === 'update') {
+            const idx = this.teams.findIndex(t => t.id === resolvedTeam.id);
+            if (idx !== -1) {
+              this.teams[idx] = resolvedTeam;
+            } else {
+              this.teams.push(resolvedTeam);
+            }
+          } else if (e.action === 'delete') {
+            this.teams = this.teams.filter(t => t.id !== resolvedTeam.id);
+          }
+
+          // Force re-resolving matches to propagate team changes
+          this.matches = this.matches.map(m => {
+            return {
+              ...m,
+              homeTeam: this.resolveTeam(m.homeTeam),
+              awayTeam: this.resolveTeam(m.awayTeam)
+            };
+          });
+        },
+
         handleStandingRealtimeUpdate(e: any) {
           console.log('Real-time standing update received:', e);
           this.fetchStandingsOnly();
@@ -431,7 +529,8 @@ import '../styles/global.css';
         handleStadiumRealtimeUpdate(e: any) {
           console.log('Real-time stadium update received:', e);
           const resolvedStadium = {
-            id: e.record.stadiumId || e.record.id,
+            id: e.record.id,
+            stadiumId: e.record.stadiumId || e.record.id,
             name: e.record.name,
             city: e.record.city,
             country: e.record.country,

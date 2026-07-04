@@ -86,10 +86,13 @@ The app contains geographical datasets for the **16 official host stadiums**:
 
 ### Prerequisite Dependencies
 Make sure you have [Bun](https://bun.sh/) and [Rustup](https://rustup.rs/) installed on your machine.
+If you have [just](https://github.com/casey/just) installed, you can use the streamlined recipes in the `justfile` instead of typing out long commands.
 
 * Install node/npm dependencies:
   ```bash
   bun install
+  # or using just:
+  just install
   ```
 
 ---
@@ -99,59 +102,96 @@ Make sure you have [Bun](https://bun.sh/) and [Rustup](https://rustup.rs/) insta
 * **Web UI (starts dev server at port 4321)**:
   ```bash
   bun run dev
+  # or using just:
+  just dev-web
   ```
 * **Desktop Application (Tauri window)**:
   ```bash
   bun run tauri dev
+  # or using just:
+  just dev-desktop
   ```
 * **iOS Simulator** (Requires Xcode installed):
   ```bash
   bun run tauri ios dev
+  # or using just:
+  just dev-ios
   ```
 * **Android Emulator** (Requires Android Studio/NDK installed):
   ```bash
   bun run tauri android dev
+  # or using just:
+  just dev-android
   ```
 
 ---
 
-### 2. Running Code Tests
-* **Verify Frontend Compilation**:
+### 2. Running Code Tests & Checks
+
+* **Run All Tests (Frontend + Backend)**:
   ```bash
-  bun run build
+  just test-all
   ```
 * **Run Frontend Unit & Integration Tests**:
   ```bash
   bun test
+  # or using just:
+  just test-unit
   ```
 * **Run Backend Host Integration Tests**:
   ```bash
   cargo test --manifest-path src-tauri/Cargo.toml
+  # or using just:
+  just test-integration
   ```
-* **Check Rust compilation health**:
+* **Check Rust Compilation Health & Lints**:
   ```bash
-  cargo check --manifest-path src-tauri/Cargo.toml
-  ```
-* **Lint Rust Modules**:
-  ```bash
-  cargo clippy --manifest-path src-tauri/Cargo.toml
+  cargo check --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml
+  # or using just:
+  just check
   ```
 
 ---
 
 ### 3. Compiling Release Packages
+
+* **Build & Verify All Primary Targets (Check, Test, Web + Fast Desktop)**:
+  ```bash
+  just build-all
+  ```
 * **Build Web Assets**:
   ```bash
   bun run build
+  # or using just:
+  just build-web
   ```
 * **Build Desktop App Binary** (optimized, skipping installer bundling for faster dev checks):
   ```bash
   bun run tauri build --no-bundle
+  # or using just:
+  just build-desktop-fast
   ```
 * **Build Installer Bundles** (`.dmg`, `.app` on macOS, `.msi` on Windows):
   ```bash
   bun run tauri build
+  # or using just:
+  just build-desktop
   ```
+* **Build Mobile Targets**:
+  ```bash
+  just build-ios
+  just build-android
+  ```
+
+---
+
+### 4. Git Deployment & Ship Workflow
+
+* **Build, test, stage, commit, and push in one command**:
+  ```bash
+  just ship "your commit message"
+  ```
+  *(If no commit message is provided, it defaults to `"build: update assets and pass tests"`)*
 
 ---
 

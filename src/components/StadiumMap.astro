@@ -269,7 +269,9 @@
 
     getStadiumMatches(stadiumId: string) {
       if (!stadiumId) return [];
-      return this.$parent.matches.filter((m: any) => m.stadiumId === stadiumId);
+      const stadium = this.$parent.stadiums.find(s => s.id === stadiumId || s.stadiumId === stadiumId);
+      if (!stadium) return [];
+      return this.$parent.matches.filter((m: any) => m.stadiumId === stadium.id || m.stadiumId === stadium.stadiumId);
     }
   }));
 </script>

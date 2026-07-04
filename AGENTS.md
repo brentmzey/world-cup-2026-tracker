@@ -20,3 +20,14 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+
+## Task Runner (just)
+
+This project contains a [justfile](file:///Users/brentzey/personal/world-cup-2026-tracker/justfile). You can list available recipes with `just`.
+Common recipes you can run:
+- Start dev server: `just dev-web`
+- Run all tests: `just test-all`
+- Run linting and health checks: `just check`
+- Build frontend & fast desktop: `just build-all`
+- Clean artifacts: `just clean`
+
