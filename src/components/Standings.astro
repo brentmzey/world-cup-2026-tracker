@@ -32,7 +32,7 @@
                   <!-- Team Flag + Name -->
                   <td style="padding: 10px 4px; display: flex; align-items: center; gap: 8px; font-weight: 500;">
                     <span style="font-size: 0.8rem; color: var(--text-muted); width: 12px;" x-text="index + 1"></span>
-                    <span style="font-size: 1.3rem;" x-text="TEAMS.find(t => t.id === team.teamId)?.flag || '🏳️'"></span>
+                    <span style="font-size: 1.3rem;" x-text="teams.find(t => t.id === team.teamId)?.flag || '🏳️'"></span>
                     <span x-text="team.code" style="color: #ffffff; font-weight: 600;" :title="team.teamName"></span>
                   </td>
                   

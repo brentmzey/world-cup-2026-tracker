@@ -142,6 +142,12 @@
           }, 200);
         }
       });
+      // Watch parent stadiums to update markers dynamically in real time
+      this.$watch('$parent.stadiums', (newStadiums) => {
+        if (this.map) {
+          this.updateMapMarkers(newStadiums);
+        }
+      }, { deep: true });
     },
 
     initializeLeaflet() {
@@ -163,7 +169,16 @@
       }).addTo(this.map);
 
       // Add markers for all stadiums in parent scope
-      const stadiums = this.$parent.stadiums;
+      this.updateMapMarkers(this.$parent.stadiums);
+    },
+
+    updateMapMarkers(stadiums: any[]) {
+      const L = (window as any).L;
+      if (!L || !this.map) return;
+
+      // Clear existing markers from map
+      this.markers.forEach(m => this.map.removeLayer(m.marker));
+      this.markers = [];
 
       stadiums.forEach((stadium: any) => {
         // Set color code based on country

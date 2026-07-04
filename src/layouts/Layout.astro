@@ -117,8 +117,9 @@ import '../styles/global.css';
     <!-- Alpine.js App State Script -->
     <script>
       import Alpine from 'alpinejs';
+      import PocketBase from 'pocketbase';
       import { loadTenantConfig, applyTheme, isTauriEnvironment, MOCK_DB_TENANTS } from '../lib/config';
-      import { STADIUMS, MATCHES, GROUP_STANDINGS, type Match, type Stadium, type GroupStanding } from '../lib/mockData';
+      import { STADIUMS, MATCHES, GROUP_STANDINGS, TEAMS, type Match, type Stadium, type GroupStanding, type Team } from '../lib/mockData';
 
       // Define Alpine Component State
       Alpine.data('worldCupApp', () => ({
@@ -128,6 +129,8 @@ import '../styles/global.css';
         stadiums: [] as Stadium[],
         matches: [] as Match[],
         standings: [] as GroupStanding[],
+        teams: [] as Team[],
+        pb: null as any,
         
         // Match filtering and search
         matchSearch: '',
@@ -149,6 +152,7 @@ import '../styles/global.css';
           this.stadiums = STADIUMS;
           this.matches = MATCHES;
           this.standings = GROUP_STANDINGS;
+          this.teams = TEAMS;
           
           // Load stored predictions
           const savedPreds = localStorage.getItem('wc_predictions');
@@ -171,6 +175,303 @@ import '../styles/global.css';
           
           // Apply styling dynamically
           applyTheme(config);
+
+          // Setup real-time PocketBase integration
+          await this.setupPocketBaseData();
+        },
+
+        async setupPocketBaseData() {
+          // Clean up existing subscriptions if active
+          if (this.pb) {
+            try {
+              await this.pb.collection('matches').unsubscribe();
+              await this.pb.collection('standings').unsubscribe();
+              await this.pb.collection('group_standings').unsubscribe();
+              await this.pb.collection('stadiums').unsubscribe();
+            } catch (err) {
+              console.warn('Error unsubscribing:', err);
+            }
+            this.pb = null;
+          }
+
+          if (!this.config.pocketbaseUrl) {
+            this.stadiums = STADIUMS;
+            this.matches = MATCHES;
+            this.standings = GROUP_STANDINGS;
+            return;
+          }
+
+          try {
+            this.pb = new PocketBase(this.config.pocketbaseUrl);
+
+            // Fetch initial real-time data from PocketBase
+            await this.fetchPocketBaseData();
+
+            // Subscribe to real-time updates for Matches
+            try {
+              await this.pb.collection('matches').subscribe('*', (e: any) => {
+                this.handleMatchRealtimeUpdate(e);
+              });
+            } catch (err) {
+              console.warn('Matches subscription failed:', err);
+            }
+
+            // Subscribe to real-time updates for Standings
+            try {
+              await this.pb.collection('standings').subscribe('*', (e: any) => {
+                this.handleStandingRealtimeUpdate(e);
+              });
+            } catch (err) {
+              try {
+                await this.pb.collection('group_standings').subscribe('*', (e: any) => {
+                  this.handleStandingRealtimeUpdate(e);
+                });
+              } catch (err2) {
+                console.warn('Standings subscription failed:', err2);
+              }
+            }
+
+            // Subscribe to real-time updates for Stadiums
+            try {
+              await this.pb.collection('stadiums').subscribe('*', (e: any) => {
+                this.handleStadiumRealtimeUpdate(e);
+              });
+            } catch (err) {
+              console.warn('Stadiums subscription failed:', err);
+            }
+
+            console.log('PocketBase real-time subscriptions established successfully.');
+          } catch (err) {
+            console.error('Failed to configure PocketBase connection. Falling back to local data.', err);
+            this.stadiums = STADIUMS;
+            this.matches = MATCHES;
+            this.standings = GROUP_STANDINGS;
+          }
+        },
+
+        async fetchPocketBaseData() {
+          if (!this.pb) return;
+
+          // Fetch Stadiums
+          try {
+            const pbStadiums = await this.pb.collection('stadiums').getFullList();
+            if (pbStadiums && pbStadiums.length > 0) {
+              this.stadiums = pbStadiums.map((s: any) => ({
+                id: s.stadiumId || s.id,
+                name: s.name,
+                city: s.city,
+                country: s.country,
+                capacity: Number(s.capacity || 0),
+                image: s.image || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60',
+                lat: Number(s.lat || 0),
+                lng: Number(s.lng || 0),
+                info: s.info || ''
+              }));
+            }
+          } catch (err) {
+            console.warn('Failed to load stadiums from PocketBase, using static data.', err);
+            this.stadiums = STADIUMS;
+          }
+
+          // Fetch Matches
+          try {
+            const pbMatches = await this.pb.collection('matches').getFullList({
+              sort: 'date,time'
+            });
+            if (pbMatches && pbMatches.length > 0) {
+              this.matches = pbMatches.map((m: any) => this.resolveMatchRecord(m));
+            }
+          } catch (err) {
+            console.warn('Failed to load matches from PocketBase, using static data.', err);
+            this.matches = MATCHES;
+          }
+
+          // Fetch Standings
+          await this.fetchStandingsOnly();
+        },
+
+        async fetchStandingsOnly() {
+          if (!this.pb) return;
+          try {
+            let pbStandings = [];
+            try {
+              pbStandings = await this.pb.collection('standings').getFullList();
+            } catch (err) {
+              pbStandings = await this.pb.collection('group_standings').getFullList();
+            }
+            if (pbStandings && pbStandings.length > 0) {
+              this.standings = this.processStandings(pbStandings);
+            } else {
+              this.standings = GROUP_STANDINGS;
+            }
+          } catch (err) {
+            console.warn('Failed to load standings from PocketBase, using static data.', err);
+            this.standings = GROUP_STANDINGS;
+          }
+        },
+
+        resolveTeam(teamInput: any) {
+          if (typeof teamInput === 'object' && teamInput !== null) {
+            return teamInput;
+          }
+          if (typeof teamInput === 'string') {
+            const found = this.teams.find(t => t.id === teamInput || t.code === teamInput || t.name === teamInput);
+            if (found) return found;
+            return {
+              id: teamInput,
+              name: teamInput,
+              code: teamInput.substring(0, 3).toUpperCase(),
+              flag: '🏳️',
+              group: ''
+            };
+          }
+          return { id: 'unknown', name: 'Unknown Team', code: 'UNK', flag: '🏳️', group: '' };
+        },
+
+        resolveMatchRecord(record: any): Match {
+          return {
+            id: record.matchId || record.id,
+            homeTeam: this.resolveTeam(record.homeTeam),
+            awayTeam: this.resolveTeam(record.awayTeam),
+            homeScore: record.homeScore !== undefined && record.homeScore !== null ? Number(record.homeScore) : undefined,
+            awayScore: record.awayScore !== undefined && record.awayScore !== null ? Number(record.awayScore) : undefined,
+            date: record.date,
+            time: record.time,
+            stadiumId: record.stadiumId,
+            stage: record.stage || 'Group Stage',
+            status: record.status || 'Scheduled'
+          };
+        },
+
+        processStandings(records: any[]): GroupStanding[] {
+          if (!records || records.length === 0) return GROUP_STANDINGS;
+
+          const firstRecord = records[0];
+          const isGroupBased = firstRecord.teams !== undefined;
+
+          if (isGroupBased) {
+            return records.map(r => {
+              let teams = r.teams;
+              if (typeof teams === 'string') {
+                try {
+                  teams = JSON.parse(teams);
+                } catch (e) {
+                  teams = [];
+                }
+              }
+              return {
+                group: r.group,
+                teams: Array.isArray(teams) ? teams : []
+              };
+            });
+          }
+
+          // Group individual records by `group` field
+          const groupsMap: Record<string, any[]> = {};
+          records.forEach(r => {
+            const groupName = r.group || 'Group A';
+            if (!groupsMap[groupName]) {
+              groupsMap[groupName] = [];
+            }
+            groupsMap[groupName].push({
+              teamId: r.teamId || r.id,
+              teamName: r.teamName || r.team_name || r.name,
+              code: r.code || (r.teamName || r.name || '').substring(0, 3).toUpperCase(),
+              played: Number(r.played ?? 0),
+              won: Number(r.won ?? 0),
+              drawn: Number(r.drawn ?? 0),
+              lost: Number(r.lost ?? 0),
+              goalsFor: Number(r.goalsFor ?? r.goals_for ?? 0),
+              goalsAgainst: Number(r.goalsAgainst ?? r.goals_against ?? 0),
+              points: Number(r.points ?? 0)
+            });
+          });
+
+          return Object.keys(groupsMap).map(groupName => {
+            const sortedTeams = groupsMap[groupName].sort((a, b) => {
+              if (b.points !== a.points) return b.points - a.points;
+              const gdA = a.goalsFor - a.goalsAgainst;
+              const gdB = b.goalsFor - b.goalsAgainst;
+              if (gdB !== gdA) return gdB - gdA;
+              return b.goalsFor - a.goalsFor;
+            });
+            return {
+              group: groupName,
+              teams: sortedTeams
+            };
+          });
+        },
+
+        handleMatchRealtimeUpdate(e: any) {
+          console.log('Real-time match update received:', e);
+          const resolvedMatch = this.resolveMatchRecord(e.record);
+          if (e.action === 'create') {
+            if (!this.matches.some(m => m.id === resolvedMatch.id)) {
+              this.matches.push(resolvedMatch);
+              this.matches.sort((a, b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
+            }
+          } else if (e.action === 'update') {
+            const idx = this.matches.findIndex(m => m.id === resolvedMatch.id);
+            if (idx !== -1) {
+              this.matches[idx] = resolvedMatch;
+            } else {
+              this.matches.push(resolvedMatch);
+              this.matches.sort((a, b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
+            }
+          } else if (e.action === 'delete') {
+            this.matches = this.matches.filter(m => m.id !== resolvedMatch.id);
+          }
+        },
+
+        handleStandingRealtimeUpdate(e: any) {
+          console.log('Real-time standing update received:', e);
+          this.fetchStandingsOnly();
+        },
+
+        handleStadiumRealtimeUpdate(e: any) {
+          console.log('Real-time stadium update received:', e);
+          const resolvedStadium = {
+            id: e.record.stadiumId || e.record.id,
+            name: e.record.name,
+            city: e.record.city,
+            country: e.record.country,
+            capacity: Number(e.record.capacity || 0),
+            image: e.record.image || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=500&auto=format&fit=crop&q=60',
+            lat: Number(e.record.lat || 0),
+            lng: Number(e.record.lng || 0),
+            info: e.record.info || ''
+          };
+
+          if (e.action === 'create') {
+            if (!this.stadiums.some(s => s.id === resolvedStadium.id)) {
+              this.stadiums.push(resolvedStadium);
+            }
+          } else if (e.action === 'update') {
+            const idx = this.stadiums.findIndex(s => s.id === resolvedStadium.id);
+            if (idx !== -1) {
+              this.stadiums[idx] = resolvedStadium;
+            } else {
+              this.stadiums.push(resolvedStadium);
+            }
+          } else if (e.action === 'delete') {
+            this.stadiums = this.stadiums.filter(s => s.id !== resolvedStadium.id);
+          }
+        },
+
+        // Helper to format country code to flag
+        getCountryFlag(country: string): string {
+          switch (country) {
+            case 'USA': return '🇺🇸';
+            case 'Canada': return '🇨🇦';
+            case 'Mexico': return '🇲🇽';
+            default: return '🏳️';
+          }
+        },
+
+        // Prediction functionality
+        makePrediction(matchId: string, outcome: 'home' | 'draw' | 'away') {
+          this.predictions[matchId] = outcome;
+          localStorage.setItem('wc_predictions', JSON.stringify(this.predictions));
         },
 
         async saveConfigOverride() {
@@ -194,22 +495,6 @@ import '../styles/global.css';
           localStorage.removeItem('tenant_id');
           localStorage.removeItem('pocketbase_url');
           await this.reloadConfig();
-        },
-
-        // Helper to format country code to flag
-        getCountryFlag(country: string): string {
-          switch (country) {
-            case 'USA': return '🇺🇸';
-            case 'Canada': return '🇨🇦';
-            case 'Mexico': return '🇲🇽';
-            default: return '🏳️';
-          }
-        },
-
-        // Prediction functionality
-        makePrediction(matchId: string, outcome: 'home' | 'draw' | 'away') {
-          this.predictions[matchId] = outcome;
-          localStorage.setItem('wc_predictions', JSON.stringify(this.predictions));
         },
 
         // Calculate totals for dashboard
