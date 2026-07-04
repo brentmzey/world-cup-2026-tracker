@@ -1,4 +1,5 @@
 import PocketBase from 'pocketbase';
+import defaultConfig from '../../config.json';
 
 export interface TenantConfig {
   tenantId: string;
@@ -126,11 +127,25 @@ export function isTauriEnvironment(): boolean {
 
 // Invoke the Tauri Rust command safely
 export async function getSystemConfig(): Promise<SystemConfig> {
+  let fallbackTenant = null;
+  let fallbackPbUrl = null;
+  try {
+    fallbackTenant = defaultConfig.tenantId || null;
+    fallbackPbUrl = defaultConfig.pocketbaseUrl || null;
+  } catch (e) {
+    console.warn('Could not read defaultConfig:', e);
+  }
+
   if (isTauriEnvironment()) {
     try {
       // Dynamically import Tauri core to prevent issues in standard browser environments
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke<SystemConfig>('get_system_config');
+      const tauriConfig = await invoke<SystemConfig>('get_system_config');
+      
+      if (!tauriConfig.tenantId) tauriConfig.tenantId = fallbackTenant;
+      if (!tauriConfig.pocketbaseUrl) tauriConfig.pocketbaseUrl = fallbackPbUrl;
+
+      return tauriConfig;
     } catch (e) {
       console.warn('Failed to invoke tauri command `get_system_config`:', e);
     }
@@ -138,9 +153,9 @@ export async function getSystemConfig(): Promise<SystemConfig> {
   
   // Browser fallback
   return {
-    tenantId: null,
-    pocketbaseUrl: null,
-    configSource: 'Browser LocalStorage / Defaults',
+    tenantId: fallbackTenant,
+    pocketbaseUrl: fallbackPbUrl,
+    configSource: 'Browser config.json Defaults',
     isTauri: false
   };
 }

@@ -35,6 +35,14 @@
 
   <!-- Match Grid -->
   <div style="display: flex; flex-direction: column; gap: 16px;">
+    <!-- Empty State -->
+    <div x-show="matches.filter(m => (matchFilter === 'All' || m.status === matchFilter) && (matchSearch === '' || (typeof m.homeTeam === 'object' && m.homeTeam.name.toLowerCase().includes(matchSearch.toLowerCase())) || (typeof m.awayTeam === 'object' && m.awayTeam.name.toLowerCase().includes(matchSearch.toLowerCase())) || m.stage.toLowerCase().includes(matchSearch.toLowerCase()) || m.stadiumId.toLowerCase().includes(matchSearch.toLowerCase()))).length === 0" style="text-align: center; padding: 40px; background: rgba(var(--card-bg-rgb), 0.3); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+      <div style="font-size: 3rem; margin-bottom: 10px;">⚽</div>
+      <h3 style="color: #ffffff; margin-bottom: 8px;">No matches found</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        There are currently no <strong x-text="matchFilter"></strong> matches that match your criteria.
+      </p>
+    </div>
     <template x-for="match in matches" :key="match.id">
       <div 
         x-show="
@@ -53,13 +61,16 @@
         "
       >
         <!-- Home Team -->
-        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 16px;">
-          <span style="font-size: 1.1rem; font-weight: 600; text-align: right;" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.name : match.homeTeam"></span>
-          <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.flag : '🏳️'"></span>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">Home</span>
+          <div style="display: flex; align-items: center; justify-content: flex-end; gap: 16px;">
+            <span style="font-size: 1.2rem; font-weight: 600; text-align: right;" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.name : match.homeTeam"></span>
+            <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.flag : '🏳️'"></span>
+          </div>
         </div>
 
         <!-- Score / Time Middle Block -->
-        <div style="display: flex; flex-direction: column; align-items: center; min-width: 120px;">
+        <div style="display: flex; flex-direction: column; align-items: center; min-width: 140px;">
           <span class="badge" 
             :class="
               match.status === 'Live' ? 'badge-accent' :
@@ -72,26 +83,29 @@
           </span>
 
           <!-- Scores or Schedule Time -->
-          <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-heading); display: flex; align-items: center; gap: 12px;">
+          <div style="font-size: 2.2rem; font-weight: 900; font-family: var(--font-heading); display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.2); padding: 8px 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
             <template x-if="match.status === 'Live' || match.status === 'Finished'">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span x-text="match.homeScore">0</span>
-                <span style="font-size: 1.2rem; color: var(--text-muted);">:</span>
-                <span x-text="match.awayScore">0</span>
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <span x-text="match.homeScore" style="color: #ffffff;">0</span>
+                <span style="font-size: 1.2rem; color: rgba(255,255,255,0.2);">-</span>
+                <span x-text="match.awayScore" style="color: #ffffff;">0</span>
               </div>
             </template>
             <template x-if="match.status === 'Scheduled'">
-              <span style="font-size: 1rem; color: var(--primary); font-weight: 600;" x-text="match.time"></span>
+              <span style="font-size: 1.1rem; color: var(--primary); font-weight: 600;" x-text="match.time"></span>
             </template>
           </div>
 
-          <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;" x-text="match.date"></span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;" x-text="match.date"></span>
         </div>
 
         <!-- Away Team -->
-        <div style="display: flex; align-items: center; justify-content: flex-start; gap: 16px;">
-          <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.flag : '🏳️'"></span>
-          <span style="font-size: 1.1rem; font-weight: 600;" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.name : match.awayTeam"></span>
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+          <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">Away</span>
+          <div style="display: flex; align-items: center; justify-content: flex-start; gap: 16px;">
+            <span style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.flag : '🏳️'"></span>
+            <span style="font-size: 1.2rem; font-weight: 600;" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.name : match.awayTeam"></span>
+          </div>
         </div>
 
         <!-- Details Footer & Prediction Panel (span columns 3) -->
