@@ -86,9 +86,21 @@
           <div style="font-size: 2.2rem; font-weight: 900; font-family: var(--font-heading); display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.2); padding: 8px 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
             <template x-if="match.status === 'Live' || match.status === 'Finished'">
               <div style="display: flex; align-items: center; gap: 16px;">
-                <span x-text="match.homeScore" style="color: #ffffff;">0</span>
+                <!-- Home Team Badge & Score -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 1.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.flag : '🏳️'"></span>
+                  <span style="font-size: 1.1rem; font-weight: 700; color: rgba(255,255,255,0.6);" x-text="typeof match.homeTeam === 'object' ? match.homeTeam.code : 'Home'"></span>
+                  <span x-text="match.homeScore" style="color: #ffffff; margin-left: 6px;">0</span>
+                </div>
+                
                 <span style="font-size: 1.2rem; color: rgba(255,255,255,0.2);">-</span>
-                <span x-text="match.awayScore" style="color: #ffffff;">0</span>
+                
+                <!-- Away Team Badge & Score -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span x-text="match.awayScore" style="color: #ffffff; margin-right: 6px;">0</span>
+                  <span style="font-size: 1.1rem; font-weight: 700; color: rgba(255,255,255,0.6);" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.code : 'Away'"></span>
+                  <span style="font-size: 1.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));" x-text="typeof match.awayTeam === 'object' ? match.awayTeam.flag : '🏳️'"></span>
+                </div>
               </div>
             </template>
             <template x-if="match.status === 'Scheduled'">
