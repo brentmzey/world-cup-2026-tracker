@@ -1,10 +1,11 @@
 name: Build and Release Artifacts
 
 on:
-  push:
-    tags:
+  # push:
+    # tags:
       - 'v*'
 
+  workflow_dispatch:
 jobs:
   build-and-release:
     permissions:

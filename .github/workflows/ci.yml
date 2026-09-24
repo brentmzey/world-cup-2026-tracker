@@ -1,11 +1,12 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [ main, development ]
-  pull_request:
-    branches: [ main, development ]
+  # push:
+    # branches: [ main, development ]
+  # pull_request:
+    # branches: [ main, development ]
 
+  workflow_dispatch:
 jobs:
   check-and-test:
     name: Check, Test, and Verify Build
